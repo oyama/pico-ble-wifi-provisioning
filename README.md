@@ -49,6 +49,10 @@ The firmware runs as a USB serial device. You can monitor the debug log using a 
 
 ⚠️  nRF Connect should be sent and received in **UTF-8**.
 
+<img src="https://github.com/user-attachments/assets/6f93441c-f8b3-4805-bc2c-b6a5e4bc41f8" width=300/>
+
+<img src="https://github.com/user-attachments/assets/61f2fa72-e977-499d-b522-48bc87be769a" width=300/>
+
 ## License
 
 This project is licensed under the 3-Clause BSD License. For details, see the [LICENSE](LICENSE.md) file.
