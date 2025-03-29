@@ -519,13 +519,40 @@ static void bluetooth_init(void) {
     sm_add_event_handler(&sm_event_callback_registration);
 
     sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
-    sm_set_authentication_requirements(SM_AUTHREQ_BONDING);
+    sm_set_authentication_requirements(SM_AUTHREQ_NO_BONDING);
 
     hci_power_control(HCI_POWER_ON);
 }
 
+#define LED_BLINK_INTERVAL_US  500000
+
+// Control LEDs according to device status
+static void device_task(void) {
+    static uint64_t last_toggle_time = 0;
+    bool led_state = cyw43_arch_gpio_get(CYW43_WL_GPIO_LED_PIN);
+
+    switch (current_state) {
+        case DEVICE_WIFI_LINK_DOWN:
+        case DEVICE_WIFI_LINK_TO_UP:
+        case DEVICE_WIFI_LINK_UP:
+            if (time_us_64() - last_toggle_time > LED_BLINK_INTERVAL_US) {
+                cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, !led_state);
+                last_toggle_time = time_us_64();
+            }
+            break;
+        case DEVICE_RUNNING:
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, true);
+            break;
+        default:
+            if (led_state)
+                cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, false);
+            break;
+    }
+}
+
 static void wifi_task(void) {
     int status;
+
     switch (current_state) {
         case DEVICE_WIFI_LINK_TO_UP:
             status = cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
@@ -552,7 +579,6 @@ static void wifi_task(void) {
                 strcpy(wifi_setting.ip_address, ip_address);
                 printf("Acquired IP address=%s\n", wifi_setting.ip_address);
                 wifi_setting.link_status = 1;
-                cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
 
                 process_event(EVENT_IP_ACQUIRED);
             }
@@ -561,7 +587,6 @@ static void wifi_task(void) {
             process_event(EVENT_WIFI_CONNECTED);
             break;
         case DEVICE_WIFI_LINK_DOWN:
-            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
             if (strlen(wifi_setting.ssid) > 0 && strlen(wifi_setting.password) > 0) {
                 process_event(EVENT_WIFI_CONNECT);
             }
@@ -582,6 +607,7 @@ int main() {
     process_event(EVENT_WIFI_CONFIGURED);
     while (true) {
         wifi_task();
+        device_task();
 
         if (le_notification_enabled) {
             att_server_request_can_send_now_event(con_handle);
