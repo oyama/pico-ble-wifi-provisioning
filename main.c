@@ -32,7 +32,11 @@ typedef enum {
     EVENT_ERROR_OCCURED
 } device_event_t;
 
-static device_state_t current_state = DEVICE_START_UP;
+typedef enum {
+    WIFI_SSID_HANDLE = ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
+    WIFI_PASSWORD_HANDLE = ATT_CHARACTERISTIC_be3d7602_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
+    IP_ADDRESS_HANDLE = ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE
+} attribute_handle_t;
 
 typedef struct {
     char ssid[33];
@@ -41,9 +45,9 @@ typedef struct {
     uint8_t link_status;
 } wifi_setting_t;
 
+static device_state_t current_state = DEVICE_START_UP;
 static wifi_setting_t wifi_setting;
-
-int le_notification_enabled;
+static int le_notification_enabled;
 hci_con_handle_t con_handle;
 static btstack_packet_callback_registration_t hci_event_callback_registration;
 static btstack_packet_callback_registration_t sm_event_callback_registration;
@@ -142,8 +146,6 @@ static device_state_t state_transition(device_state_t state, device_event_t even
     return state;
 }
 
-void process_event(device_event_t event);
-
 typedef struct {
     char *data;
     size_t len;
@@ -152,16 +154,15 @@ typedef struct {
 
 static void notify_ip_address_callback(void *context) {
     notify_string_t *notify = (notify_string_t *)context;
-    int err =
-        att_server_notify(*notify->con_handle,
-                          ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
-                          notify->data, notify->len);
+    int err = att_server_notify(*notify->con_handle, IP_ADDRESS_HANDLE, notify->data, notify->len);
     if (err) {
         printf("notify_callback - error!\n");
     }
 }
 
-void state_entry_action(device_state_t state) {
+static void process_event(device_event_t event);
+
+static void state_entry_action(device_state_t state) {
     switch (state) {
         case DEVICE_WIFI_LINK_TO_UP: {
             printf(
@@ -205,10 +206,9 @@ void state_entry_action(device_state_t state) {
             wifi_setting.ip_address[0] = '\0';
 
             if (con_handle != HCI_CON_HANDLE_INVALID) {
-                att_server_notify(
-                    con_handle,
-                    ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
-                    (uint8_t *)&wifi_setting.ip_address, strlen(wifi_setting.ip_address));
+                att_server_notify(con_handle, IP_ADDRESS_HANDLE,
+                                  (uint8_t *)&wifi_setting.ip_address,
+                                  strlen(wifi_setting.ip_address));
             }
             break;
         }
@@ -220,7 +220,7 @@ void state_entry_action(device_state_t state) {
     }
 }
 
-void process_event(device_event_t event) {
+static void process_event(device_event_t event) {
     device_state_t new_state = state_transition(current_state, event);
     printf("Process %s, %s -> %s\n", device_event_string(event), device_state_string(current_state),
            device_state_string(new_state));
@@ -230,9 +230,10 @@ void process_event(device_event_t event) {
     }
 }
 
-void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size) {
-    UNUSED(size);
-    UNUSED(channel);
+static void ble_event_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet,
+                              uint16_t size) {
+    (void)size;
+    (void)channel;
     bd_addr_t local_addr;
     if (packet_type != HCI_EVENT_PACKET)
         return;
@@ -271,14 +272,11 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
             break;
         case ATT_EVENT_CAN_SEND_NOW:
             if (con_handle != HCI_CON_HANDLE_INVALID) {
-                att_server_notify(
-                    con_handle,
-                    ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
-                    (uint8_t *)&wifi_setting.ssid, strlen(wifi_setting.ssid));
-                att_server_notify(
-                    con_handle,
-                    ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
-                    (uint8_t *)&wifi_setting.ip_address, strlen(wifi_setting.ip_address));
+                att_server_notify(con_handle, WIFI_SSID_HANDLE, (uint8_t *)&wifi_setting.ssid,
+                                  strlen(wifi_setting.ssid));
+                att_server_notify(con_handle, IP_ADDRESS_HANDLE,
+                                  (uint8_t *)&wifi_setting.ip_address,
+                                  strlen(wifi_setting.ip_address));
             }
             break;
         default:
@@ -286,10 +284,72 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
     }
 }
 
-static void sm_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet,
-                              uint16_t size) {
-    UNUSED(channel);
-    UNUSED(size);
+static uint16_t att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle,
+                                  uint16_t offset, uint8_t *buffer, uint16_t buffer_size) {
+    (void)connection_handle;
+
+    if (att_handle == WIFI_SSID_HANDLE) {
+        printf("Read characteristic SSID: \"%s\"\n", wifi_setting.ssid);
+        return att_read_callback_handle_blob((const uint8_t *)&wifi_setting.ssid,
+                                             strlen(wifi_setting.ssid), offset, buffer,
+                                             buffer_size);
+    }
+    if (att_handle == IP_ADDRESS_HANDLE) {
+        printf("Read characteristic IP address: %s\n", wifi_setting.ip_address);
+        return att_read_callback_handle_blob((const uint8_t *)&wifi_setting.ip_address,
+                                             strlen(wifi_setting.ip_address), offset, buffer,
+                                             buffer_size);
+    }
+    return 0;
+}
+
+static int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle,
+                              uint16_t transaction_mode, uint16_t offset, uint8_t *buffer,
+                              uint16_t buffer_size) {
+    (void)transaction_mode;
+    (void)offset;
+    switch (att_handle) {
+        case WIFI_SSID_HANDLE:
+            if (sizeof(wifi_setting.ssid) < buffer_size) {
+                printf(
+                    "WARN: Write message to the characteristic SSID message is "
+                    "too "
+                    "long\n");
+                return ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
+            }
+            memcpy(wifi_setting.ssid, buffer, buffer_size);
+            wifi_setting.ssid[buffer_size] = '\0';
+            printf("Write characteristic SSID: \"%s\"\n", wifi_setting.ssid);
+            if (strlen(wifi_setting.ssid) > 0 && strlen(wifi_setting.password) > 0) {
+                process_event(EVENT_WIFI_CONNECT);
+            }
+            break;
+        case WIFI_PASSWORD_HANDLE:
+            if (sizeof(wifi_setting.password) < buffer_size) {
+                printf(
+                    "WARN: Write message to the characteristic Password is too "
+                    "long\n");
+                return ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
+            }
+            memcpy(wifi_setting.password, buffer, buffer_size);
+            wifi_setting.password[buffer_size] = '\0';
+            printf("Write characteristic Password: ");
+            for (size_t i = 0; i < strlen(wifi_setting.password); i++) printf("*");
+            printf("\n");
+            if (strlen(wifi_setting.ssid) > 0 && strlen(wifi_setting.password) > 0) {
+                process_event(EVENT_WIFI_CONNECT);
+            }
+            break;
+        default:
+            break;
+    }
+    return ATT_ERROR_SUCCESS;
+}
+
+static void sm_event_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet,
+                             uint16_t size) {
+    (void)channel;
+    (void)size;
 
     if (packet_type != HCI_EVENT_PACKET)
         return;
@@ -305,7 +365,7 @@ static void sm_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
                 case GAP_SUBEVENT_LE_CONNECTION_COMPLETE:
                     printf("Connection complete\n");
                     con_handle = gap_subevent_le_connection_complete_get_connection_handle(packet);
-                    UNUSED(con_handle);
+                    (void)con_handle;
 
                     // for testing, choose one of the following actions
 
@@ -440,66 +500,28 @@ static void sm_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
     }
 }
 
-uint16_t att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset,
-                           uint8_t *buffer, uint16_t buffer_size) {
-    UNUSED(connection_handle);
-
-    if (att_handle == ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE) {
-        printf("Read characteristic SSID: \"%s\"\n", wifi_setting.ssid);
-        return att_read_callback_handle_blob((const uint8_t *)&wifi_setting.ssid,
-                                             strlen(wifi_setting.ssid), offset, buffer,
-                                             buffer_size);
+static void wifi_init(void) {
+    if (cyw43_arch_init()) {
+        panic("failed to initialize cyw43_arch\n");
     }
-    if (att_handle == ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE) {
-        printf("Read characteristic IP address: %s\n", wifi_setting.ip_address);
-        return att_read_callback_handle_blob((const uint8_t *)&wifi_setting.ip_address,
-                                             strlen(wifi_setting.ip_address), offset, buffer,
-                                             buffer_size);
-    }
-    return 0;
+    cyw43_arch_enable_sta_mode();
 }
 
-int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle,
-                       uint16_t transaction_mode, uint16_t offset, uint8_t *buffer,
-                       uint16_t buffer_size) {
-    UNUSED(transaction_mode);
-    UNUSED(offset);
-    switch (att_handle) {
-        case ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE:
-            if (sizeof(wifi_setting.ssid) < buffer_size) {
-                printf(
-                    "WARN: Write message to the characteristic SSID message is "
-                    "too "
-                    "long\n");
-                return ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
-            }
-            memcpy(wifi_setting.ssid, buffer, buffer_size);
-            wifi_setting.ssid[buffer_size] = '\0';
-            printf("Write characteristic SSID: \"%s\"\n", wifi_setting.ssid);
-            if (strlen(wifi_setting.ssid) > 0 && strlen(wifi_setting.password) > 0) {
-                process_event(EVENT_WIFI_CONNECT);
-            }
-            break;
-        case ATT_CHARACTERISTIC_be3d7602_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE:
-            if (sizeof(wifi_setting.password) < buffer_size) {
-                printf(
-                    "WARN: Write message to the characteristic Password is too "
-                    "long\n");
-                return ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
-            }
-            memcpy(wifi_setting.password, buffer, buffer_size);
-            wifi_setting.password[buffer_size] = '\0';
-            printf("Write characteristic Password: ");
-            for (size_t i = 0; i < strlen(wifi_setting.password); i++) printf("*");
-            printf("\n");
-            if (strlen(wifi_setting.ssid) > 0 && strlen(wifi_setting.password) > 0) {
-                process_event(EVENT_WIFI_CONNECT);
-            }
-            break;
-        default:
-            break;
-    }
-    return ATT_ERROR_SUCCESS;
+static void bluetooth_init(void) {
+    l2cap_init();
+    sm_init();
+    att_server_init(profile_data, att_read_callback, att_write_callback);
+    hci_event_callback_registration.callback = &ble_event_handler;
+    hci_add_event_handler(&hci_event_callback_registration);
+    att_server_register_packet_handler(ble_event_handler);
+
+    sm_event_callback_registration.callback = &sm_event_handler;
+    sm_add_event_handler(&sm_event_callback_registration);
+
+    sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
+    sm_set_authentication_requirements(SM_AUTHREQ_BONDING);
+
+    hci_power_control(HCI_POWER_ON);
 }
 
 static void wifi_task(void) {
@@ -554,27 +576,9 @@ int main() {
     current_state = DEVICE_START_UP;
     printf("device status=DEVICE_START_UP\n");
 
-    if (cyw43_arch_init()) {
-        printf("failed to initialize cyw43_arch\n");
-        return -1;
-    }
+    wifi_init();
+    bluetooth_init();
 
-    l2cap_init();
-    sm_init();
-    att_server_init(profile_data, att_read_callback, att_write_callback);
-    hci_event_callback_registration.callback = &packet_handler;
-    hci_add_event_handler(&hci_event_callback_registration);
-    att_server_register_packet_handler(packet_handler);
-
-    sm_event_callback_registration.callback = &sm_packet_handler;
-    sm_add_event_handler(&sm_event_callback_registration);
-
-    sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
-    sm_set_authentication_requirements(SM_AUTHREQ_BONDING);
-
-    hci_power_control(HCI_POWER_ON);
-
-    cyw43_arch_enable_sta_mode();
     process_event(EVENT_WIFI_CONFIGURED);
     while (true) {
         wifi_task();

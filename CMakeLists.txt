@@ -8,6 +8,7 @@ project(pico-ble-wifi-provisioning C CXX ASM)
 pico_sdk_init()
 
 add_executable(ble-wifi-provisioning main.c)
+target_compile_options(ble-wifi-provisioning INTERFACE -Werror -Wall -Wextra -Wnull-dereference)
 pico_btstack_make_gatt_header(ble-wifi-provisioning PRIVATE "${CMAKE_CURRENT_LIST_DIR}/wifi_provisioning.gatt")
 target_include_directories(ble-wifi-provisioning PRIVATE ${CMAKE_CURRENT_LIST_DIR})
 target_link_libraries(ble-wifi-provisioning
