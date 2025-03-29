@@ -38,6 +38,9 @@ The firmware runs as a USB serial device. You can monitor the debug log using a 
 1. Open nRF Connect or similar app and scan for devices. Look for a name like `Pico 00:...` and connect.
 2. In the GATT service list, locate the following characteristics:
 
+> **Note**: Since this implementation uses custom UUIDs, characteristics will appear as "Unknown" in BLE tools.  
+> Please refer to the UUID table below to identify which one is for SSID, Password, or IP Address.
+
 | Characteristic Name | UUID                                   | Description                       |
 |---------------------|----------------------------------------|-----------------------------------|
 | SSID                | `BE3D7601-0EA0-4E96-82E0-89AA6A3DC19F` | Wi-Fi SSID (read/write)           |
@@ -50,13 +53,11 @@ The firmware runs as a USB serial device. You can monitor the debug log using a 
 
 <img width="600" src="https://github.com/user-attachments/assets/3e531891-1d37-45b0-88c0-902c376f5c52" />
 
-⚠️  nRF Connect should be sent and received in **UTF-8**.
-
-<img src="https://github.com/user-attachments/assets/6f93441c-f8b3-4805-bc2c-b6a5e4bc41f8" width=300/>
-
-<img src="https://github.com/user-attachments/assets/61f2fa72-e977-499d-b522-48bc87be769a" width=300/>
-
-
+> **Note:** nRF Connect should be sent and received in **UTF-8**.
+> 
+> <img src="https://github.com/user-attachments/assets/6f93441c-f8b3-4805-bc2c-b6a5e4bc41f8" width=300/>
+> 
+> <img src="https://github.com/user-attachments/assets/61f2fa72-e977-499d-b522-48bc87be769a" width=300/>
 
 ## License
 
