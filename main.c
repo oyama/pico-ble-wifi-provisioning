@@ -61,6 +61,43 @@ static uint8_t adv_data[] = {
 };
 static const uint8_t adv_data_len = sizeof(adv_data);
 
+static const char *device_state_string(device_state_t state) {
+    if (state == DEVICE_START_UP)
+        return "DEVICE_START_UP";
+    if (state == DEVICE_WIFI_LINK_TO_UP)
+        return "DEVICE_WIFI_LINK_TO_UP";
+    if (state == DEVICE_WIFI_LINK_UP)
+        return "DEVICE_WIFI_LINK_UP";
+    if (state == DEVICE_WIFI_LINK_CONNECTED)
+        return "DEVICE_WIFI_LINK_CONNECTED";
+    if (state == DEVICE_WIFI_LINK_DOWN)
+        return "DEVICE_WIFI_LINK_DOWN";
+    if (state == DEVICE_RUNNING)
+        return "DEVICE_RUNNING";
+    if (state == DEVICE_ERROR)
+        return "DEVICE_ERROR";
+    return "UNKNOWN";
+}
+
+static const char *device_event_string(device_event_t event) {
+    if (event == EVENT_NONE)
+        return "EVENT_NONE";
+    if (event == EVENT_WIFI_CONFIGURED)
+        return "EVENT_WIFI_CONFIGURED";
+    if (event == EVENT_WIFI_CONNECT)
+        return "EVENT_WIFI_CONNECT";
+    if (event == EVENT_WIFI_CONNECTED)
+        return "EVENT_WIFI_CONNECTED";
+    if (event == EVENT_WIFI_ERROR)
+        return "EVENT_WIFI_ERROR";
+    if (event == EVENT_IP_ACQUIRED)
+        return "EVENT_IP_ACQUIRED";
+    if (event == EVENT_WIFI_DISCONNECTED)
+        return "EVENT_WIFI_DISCONNECTED";
+    if (event == EVENT_ERROR_OCCURED)
+        return "EVENT_ERROR_OCCURED";
+    return "UNKNOWN";
+}
 
 static device_state_t state_transition(device_state_t state, device_event_t event) {
     switch (state) {
@@ -179,7 +216,10 @@ void state_entry_action(device_state_t state) {
 
 void process_event(device_event_t event) {
     device_state_t new_state = state_transition(current_state, event);
-    printf("Transition state state=%d, event=%d -> state=%d\n", current_state, event, new_state);
+    printf("Process %s, %s -> %s\n",
+           device_event_string(event),
+           device_state_string(current_state),
+           device_state_string(new_state));
     if (new_state != current_state) {
         current_state = new_state;
         state_entry_action(current_state);
@@ -383,6 +423,10 @@ int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, 
     UNUSED(offset);
     switch (att_handle) {
         case ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE:
+            if (sizeof(wifi_setting.ssid) < buffer_size) {
+                printf("WARN: Write message to the characteristic SSID message is too long\n");
+                return ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
+            }
             memcpy(wifi_setting.ssid, buffer, buffer_size);
             wifi_setting.ssid[buffer_size] = '\0';
             printf("Write characteristic SSID: \"%s\"\n", wifi_setting.ssid);
@@ -391,9 +435,16 @@ int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, 
             }
             break;
         case ATT_CHARACTERISTIC_be3d7602_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE:
+            if (sizeof(wifi_setting.password) < buffer_size) {
+                printf("WARN: Write message to the characteristic Password is too long\n");
+                return ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
+            }
             memcpy(wifi_setting.password, buffer, buffer_size);
             wifi_setting.password[buffer_size] = '\0';
-            printf("Write characteristic Password: %s\n", wifi_setting.password);
+            printf("Write characteristic Password: ");
+            for (size_t i = 0; i < strlen(wifi_setting.password); i++)
+                printf("*");
+            printf("\n");
             if (strlen(wifi_setting.ssid) > 0 && strlen(wifi_setting.password) > 0) {
                 process_event(EVENT_WIFI_CONNECT);
             }
@@ -401,7 +452,7 @@ int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, 
         default:
             break;
     }
-    return 0;
+    return ATT_ERROR_SUCCESS;
 }
 
 static void wifi_task(void) {
@@ -472,7 +523,7 @@ int main() {
     sm_add_event_handler(&sm_event_callback_registration);
 
     sm_set_io_capabilities(IO_CAPABILITY_NO_INPUT_NO_OUTPUT);
-    sm_set_authentication_requirements(0);
+    sm_set_authentication_requirements(SM_AUTHREQ_BONDING);
 
     hci_power_control(HCI_POWER_ON);
 
