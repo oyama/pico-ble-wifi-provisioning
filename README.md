@@ -9,6 +9,7 @@ Wi-Fi provisioning over BLE on Raspberry Pi Pico W / 2 W. Uses a simple GATT-bas
 - IP address is provided via BLE read and notify
 - Reconnecting triggered by updated credentials
 - Uses custom UUIDs, not a standardized GATT profile
+- BLE communication uses Just Works pairing (encryption without authentication)
 - Rudimentary implementation for proof of concept
 
 ## Required Tools
