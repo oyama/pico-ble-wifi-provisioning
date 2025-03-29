@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: BSD-3-Clause
  */
 #include <stdio.h>
+
 #include "btstack.h"
-#include "pico/cyw43_arch.h"
 #include "pico/btstack_cyw43.h"
+#include "pico/cyw43_arch.h"
 #include "pico/stdlib.h"
 #include "wifi_provisioning.h"
-
 
 typedef enum {
     DEVICE_START_UP = 0,
@@ -34,7 +34,6 @@ typedef enum {
 
 static device_state_t current_state = DEVICE_START_UP;
 
-
 typedef struct {
     char ssid[33];
     char password[64];
@@ -44,7 +43,6 @@ typedef struct {
 
 static wifi_setting_t wifi_setting;
 
-
 int le_notification_enabled;
 hci_con_handle_t con_handle;
 static btstack_packet_callback_registration_t hci_event_callback_registration;
@@ -52,6 +50,7 @@ static btstack_packet_callback_registration_t sm_event_callback_registration;
 
 #define APP_AD_FLAGS 0x06
 
+// clang-format off
 static uint8_t adv_data[] = {
     // Flags general discoverable
     0x02, BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS,
@@ -59,6 +58,8 @@ static uint8_t adv_data[] = {
     0x17, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0',
     0x03, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x10, 0xff,
 };
+// clang-format on
+
 static const uint8_t adv_data_len = sizeof(adv_data);
 
 static const char *device_state_string(device_state_t state) {
@@ -101,48 +102,47 @@ static const char *device_event_string(device_event_t event) {
 
 static device_state_t state_transition(device_state_t state, device_event_t event) {
     switch (state) {
-    case DEVICE_START_UP:
-        if (event == EVENT_WIFI_CONFIGURED)
-            return DEVICE_WIFI_LINK_DOWN;
-        break;
-    case DEVICE_WIFI_LINK_DOWN:
-        if (event == EVENT_WIFI_CONNECT)
-            return DEVICE_WIFI_LINK_TO_UP;
-        break;
-    case DEVICE_WIFI_LINK_TO_UP:
-        if (event == EVENT_WIFI_CONNECTED)
-            return DEVICE_WIFI_LINK_UP;
-        if (event == EVENT_WIFI_ERROR)
-            return DEVICE_WIFI_LINK_DOWN;
-        break;
-    case DEVICE_WIFI_LINK_UP:
-        if (event == EVENT_IP_ACQUIRED)
-            return DEVICE_WIFI_LINK_CONNECTED;
-        if (event == EVENT_WIFI_CONNECT)
-            return DEVICE_WIFI_LINK_DOWN;
-        if (event == EVENT_WIFI_ERROR)
-            return DEVICE_WIFI_LINK_DOWN;
-        break;
-    case DEVICE_WIFI_LINK_CONNECTED:
-        if (event == EVENT_WIFI_CONNECTED)
-            return DEVICE_RUNNING;
-        if (event == EVENT_WIFI_DISCONNECTED)
-            return DEVICE_WIFI_LINK_DOWN;
-        break;
-    case DEVICE_RUNNING:
-        if (event == EVENT_WIFI_CONNECT)
-            return DEVICE_WIFI_LINK_DOWN;
-        if (event == EVENT_WIFI_DISCONNECTED)
-            return DEVICE_WIFI_LINK_DOWN;
-        break;
-    default:
-        break;
+        case DEVICE_START_UP:
+            if (event == EVENT_WIFI_CONFIGURED)
+                return DEVICE_WIFI_LINK_DOWN;
+            break;
+        case DEVICE_WIFI_LINK_DOWN:
+            if (event == EVENT_WIFI_CONNECT)
+                return DEVICE_WIFI_LINK_TO_UP;
+            break;
+        case DEVICE_WIFI_LINK_TO_UP:
+            if (event == EVENT_WIFI_CONNECTED)
+                return DEVICE_WIFI_LINK_UP;
+            if (event == EVENT_WIFI_ERROR)
+                return DEVICE_WIFI_LINK_DOWN;
+            break;
+        case DEVICE_WIFI_LINK_UP:
+            if (event == EVENT_IP_ACQUIRED)
+                return DEVICE_WIFI_LINK_CONNECTED;
+            if (event == EVENT_WIFI_CONNECT)
+                return DEVICE_WIFI_LINK_DOWN;
+            if (event == EVENT_WIFI_ERROR)
+                return DEVICE_WIFI_LINK_DOWN;
+            break;
+        case DEVICE_WIFI_LINK_CONNECTED:
+            if (event == EVENT_WIFI_CONNECTED)
+                return DEVICE_RUNNING;
+            if (event == EVENT_WIFI_DISCONNECTED)
+                return DEVICE_WIFI_LINK_DOWN;
+            break;
+        case DEVICE_RUNNING:
+            if (event == EVENT_WIFI_CONNECT)
+                return DEVICE_WIFI_LINK_DOWN;
+            if (event == EVENT_WIFI_DISCONNECTED)
+                return DEVICE_WIFI_LINK_DOWN;
+            break;
+        default:
+            break;
     }
     return state;
 }
 
 void process_event(device_event_t event);
-
 
 typedef struct {
     char *data;
@@ -150,12 +150,12 @@ typedef struct {
     hci_con_handle_t *con_handle;
 } notify_string_t;
 
-
 static void notify_ip_address_callback(void *context) {
     notify_string_t *notify = (notify_string_t *)context;
-    int err = att_server_notify(*notify->con_handle,
-                                ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
-                                notify->data, notify->len);
+    int err =
+        att_server_notify(*notify->con_handle,
+                          ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
+                          notify->data, notify->len);
     if (err) {
         printf("notify_callback - error!\n");
     }
@@ -163,62 +163,66 @@ static void notify_ip_address_callback(void *context) {
 
 void state_entry_action(device_state_t state) {
     switch (state) {
-    case DEVICE_WIFI_LINK_TO_UP:
-        printf("Entry: DEVICE_WIFI_LINK_TO_UP, attempting Wi-Fi connection to SSID: %s\n", wifi_setting.ssid);
-        {
+        case DEVICE_WIFI_LINK_TO_UP: {
+            printf(
+                "Entry: DEVICE_WIFI_LINK_TO_UP, attempting Wi-Fi connection to "
+                "SSID: %s\n",
+                wifi_setting.ssid);
             cyw43_arch_enable_sta_mode();
             int rc = cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
-            rc = cyw43_arch_wifi_connect_async(wifi_setting.ssid, wifi_setting.password, CYW43_AUTH_WPA2_AES_PSK);
+            rc = cyw43_arch_wifi_connect_async(wifi_setting.ssid, wifi_setting.password,
+                                               CYW43_AUTH_WPA2_AES_PSK);
             if (rc != 0) {
                 printf("cyw43_arch_wifi_connect_async failed, rc=%d\n", rc);
                 process_event(EVENT_ERROR_OCCURED);
             }
+            break;
         }
-        break;
-    case DEVICE_WIFI_LINK_UP:
-        printf("Entry: DEVICE_WIFI_LINK_UP, waiting for IP address...\n");
-        break;
-    case DEVICE_WIFI_LINK_CONNECTED: {
-        printf("Entry: DEVICE_WIFI_LINK_CONNECTED, Wi-Fi connected\n");
-        if (con_handle != HCI_CON_HANDLE_INVALID) {
-            notify_string_t notify;
-            notify.data = wifi_setting.ip_address;
-            notify.len = strlen(wifi_setting.ip_address);
-            notify.con_handle = &con_handle;
-            btstack_context_callback_registration_t context_registration;
-            context_registration.callback = &notify_ip_address_callback;
-            context_registration.context = &notify;
-            att_server_request_to_send_notification(&context_registration, con_handle);
+        case DEVICE_WIFI_LINK_UP:
+            printf("Entry: DEVICE_WIFI_LINK_UP, waiting for IP address...\n");
+            break;
+        case DEVICE_WIFI_LINK_CONNECTED: {
+            printf("Entry: DEVICE_WIFI_LINK_CONNECTED, Wi-Fi connected\n");
+            if (con_handle != HCI_CON_HANDLE_INVALID) {
+                notify_string_t notify;
+                notify.data = wifi_setting.ip_address;
+                notify.len = strlen(wifi_setting.ip_address);
+                notify.con_handle = &con_handle;
+                btstack_context_callback_registration_t context_registration;
+                context_registration.callback = &notify_ip_address_callback;
+                context_registration.context = &notify;
+                att_server_request_to_send_notification(&context_registration, con_handle);
+            }
+            break;
         }
-        }
-        break;
-    case DEVICE_WIFI_LINK_DOWN: {
-        printf("Entry: DEVICE_WIFI_LINK_DOWN\n");
-        cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
-        cyw43_cb_tcpip_deinit(&cyw43_state, 0);
-        cyw43_cb_tcpip_deinit(&cyw43_state, 1);
-        cyw43_cb_tcpip_init(&cyw43_state, 0);
-        cyw43_cb_tcpip_init(&cyw43_state, 1);
-        wifi_setting.ip_address[0] = '\0';
+        case DEVICE_WIFI_LINK_DOWN: {
+            printf("Entry: DEVICE_WIFI_LINK_DOWN\n");
+            cyw43_wifi_leave(&cyw43_state, CYW43_ITF_STA);
+            cyw43_cb_tcpip_deinit(&cyw43_state, 0);
+            cyw43_cb_tcpip_deinit(&cyw43_state, 1);
+            cyw43_cb_tcpip_init(&cyw43_state, 0);
+            cyw43_cb_tcpip_init(&cyw43_state, 1);
+            wifi_setting.ip_address[0] = '\0';
 
-        if (con_handle != HCI_CON_HANDLE_INVALID) {
-            att_server_notify(con_handle, ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE, (uint8_t *)&wifi_setting.ip_address, strlen(wifi_setting.ip_address));
+            if (con_handle != HCI_CON_HANDLE_INVALID) {
+                att_server_notify(
+                    con_handle,
+                    ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
+                    (uint8_t *)&wifi_setting.ip_address, strlen(wifi_setting.ip_address));
+            }
+            break;
         }
-        }
-        break;
-    case DEVICE_RUNNING:
-        printf("Entry: DEVICE_RUNNING, device is fully operational\n");
-        break;
-    default:
-        break;
+        case DEVICE_RUNNING:
+            printf("Entry: DEVICE_RUNNING, device is fully operational\n");
+            break;
+        default:
+            break;
     }
 }
 
 void process_event(device_event_t event) {
     device_state_t new_state = state_transition(current_state, event);
-    printf("Process %s, %s -> %s\n",
-           device_event_string(event),
-           device_state_string(current_state),
+    printf("Process %s, %s -> %s\n", device_event_string(event), device_state_string(current_state),
            device_state_string(new_state));
     if (new_state != current_state) {
         current_state = new_state;
@@ -230,12 +234,14 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
     UNUSED(size);
     UNUSED(channel);
     bd_addr_t local_addr;
-    if (packet_type != HCI_EVENT_PACKET) return;
+    if (packet_type != HCI_EVENT_PACKET)
+        return;
 
     uint8_t event_type = hci_event_packet_get_type(packet);
-    switch(event_type){
+    switch (event_type) {
         case BTSTACK_EVENT_STATE:
-            if (btstack_event_state_get_state(packet) != HCI_STATE_WORKING) return;
+            if (btstack_event_state_get_state(packet) != HCI_STATE_WORKING)
+                return;
             gap_local_bd_addr(local_addr);
             printf("BTstack up and running on %s.\n", bd_addr_to_str(local_addr));
 
@@ -245,9 +251,10 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
             uint8_t adv_type = 0;
             bd_addr_t null_addr;
             memset(null_addr, 0, 6);
-            gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07, 0x00);
-            assert(adv_data_len <= 31); // ble limitation
-            gap_advertisements_set_data(adv_data_len, (uint8_t*) adv_data);
+            gap_advertisements_set_params(adv_int_min, adv_int_max, adv_type, 0, null_addr, 0x07,
+                                          0x00);
+            assert(adv_data_len <= 31);  // ble limitation
+            gap_advertisements_set_data(adv_data_len, (uint8_t *)adv_data);
             gap_advertisements_enable(1);
 
             break;
@@ -264,8 +271,14 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
             break;
         case ATT_EVENT_CAN_SEND_NOW:
             if (con_handle != HCI_CON_HANDLE_INVALID) {
-                att_server_notify(con_handle, ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE, (uint8_t *)&wifi_setting.ssid, strlen(wifi_setting.ssid));
-                att_server_notify(con_handle, ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE, (uint8_t *)&wifi_setting.ip_address, strlen(wifi_setting.ip_address));
+                att_server_notify(
+                    con_handle,
+                    ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
+                    (uint8_t *)&wifi_setting.ssid, strlen(wifi_setting.ssid));
+                att_server_notify(
+                    con_handle,
+                    ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
+                    (uint8_t *)&wifi_setting.ip_address, strlen(wifi_setting.ip_address));
             }
             break;
         default:
@@ -273,11 +286,13 @@ void packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet, uint
     }
 }
 
-static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *packet, uint16_t size){
+static void sm_packet_handler(uint8_t packet_type, uint16_t channel, uint8_t *packet,
+                              uint16_t size) {
     UNUSED(channel);
     UNUSED(size);
 
-    if (packet_type != HCI_EVENT_PACKET) return;
+    if (packet_type != HCI_EVENT_PACKET)
+        return;
 
     hci_con_handle_t con_handle;
     bd_addr_t addr;
@@ -297,11 +312,16 @@ static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *p
                     // manually start pairing
                     // sm_request_pairing(con_handle);
 
-                    // gatt client request to authenticated characteristic in sm_pairing_central (short cut, uses hard-coded value handle)
-                    // gatt_client_read_value_of_characteristic_using_value_handle(&packet_handler, con_handle, 0x0009);
+                    // gatt client request to authenticated characteristic in
+                    // sm_pairing_central (short cut, uses hard-coded value
+                    // handle)
+                    // gatt_client_read_value_of_characteristic_using_value_handle(&packet_handler,
+                    // con_handle, 0x0009);
 
-                    // general gatt client request to trigger mandatory authentication
-                    // gatt_client_discover_primary_services(&packet_handler, con_handle);
+                    // general gatt client request to trigger mandatory
+                    // authentication
+                    // gatt_client_discover_primary_services(&packet_handler,
+                    // con_handle);
                     break;
                 default:
                     break;
@@ -312,19 +332,24 @@ static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *p
             sm_just_works_confirm(sm_event_just_works_request_get_handle(packet));
             break;
         case SM_EVENT_NUMERIC_COMPARISON_REQUEST:
-            printf("Confirming numeric comparison: %"PRIu32"\n", sm_event_numeric_comparison_request_get_passkey(packet));
+            printf("Confirming numeric comparison: %" PRIu32 "\n",
+                   sm_event_numeric_comparison_request_get_passkey(packet));
             sm_numeric_comparison_confirm(sm_event_passkey_display_number_get_handle(packet));
             break;
         case SM_EVENT_PASSKEY_DISPLAY_NUMBER:
-            printf("Display Passkey: %"PRIu32"\n", sm_event_passkey_display_number_get_passkey(packet));
+            printf("Display Passkey: %" PRIu32 "\n",
+                   sm_event_passkey_display_number_get_passkey(packet));
             break;
         case SM_EVENT_IDENTITY_CREATED:
             sm_event_identity_created_get_identity_address(packet, addr);
-            printf("Identity created: type %u address %s\n", sm_event_identity_created_get_identity_addr_type(packet), bd_addr_to_str(addr));
+            printf("Identity created: type %u address %s\n",
+                   sm_event_identity_created_get_identity_addr_type(packet), bd_addr_to_str(addr));
             break;
         case SM_EVENT_IDENTITY_RESOLVING_SUCCEEDED:
             sm_event_identity_resolving_succeeded_get_identity_address(packet, addr);
-            printf("Identity resolved: type %u address %s\n", sm_event_identity_resolving_succeeded_get_identity_addr_type(packet), bd_addr_to_str(addr));
+            printf("Identity resolved: type %u address %s\n",
+                   sm_event_identity_resolving_succeeded_get_identity_addr_type(packet),
+                   bd_addr_to_str(addr));
             break;
         case SM_EVENT_IDENTITY_RESOLVING_FAILED:
             sm_event_identity_created_get_address(packet, addr);
@@ -334,7 +359,7 @@ static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *p
             printf("Pairing started\n");
             break;
         case SM_EVENT_PAIRING_COMPLETE:
-            switch (sm_event_pairing_complete_get_status(packet)){
+            switch (sm_event_pairing_complete_get_status(packet)) {
                 case ERROR_CODE_SUCCESS:
                     printf("Pairing complete, success\n");
                     break;
@@ -345,7 +370,10 @@ static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *p
                     printf("Pairing failed, disconnected\n");
                     break;
                 case ERROR_CODE_AUTHENTICATION_FAILURE:
-                    printf("Pairing failed, authentication failure with reason = %u\n", sm_event_pairing_complete_get_reason(packet));
+                    printf(
+                        "Pairing failed, authentication failure with reason = "
+                        "%u\n",
+                        sm_event_pairing_complete_get_reason(packet));
                     break;
                 default:
                     break;
@@ -353,11 +381,14 @@ static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *p
             break;
         case SM_EVENT_REENCRYPTION_STARTED:
             sm_event_reencryption_complete_get_address(packet, addr);
-            printf("Bonding information exists for addr type %u, identity addr %s -> re-encryption started\n",
-                   sm_event_reencryption_started_get_addr_type(packet), bd_addr_to_str(addr));
+            printf(
+                "Bonding information exists for addr type %u, identity addr %s "
+                "-> "
+                "re-encryption started\n",
+                sm_event_reencryption_started_get_addr_type(packet), bd_addr_to_str(addr));
             break;
         case SM_EVENT_REENCRYPTION_COMPLETE:
-            switch (sm_event_reencryption_complete_get_status(packet)){
+            switch (sm_event_reencryption_complete_get_status(packet)) {
                 case ERROR_CODE_SUCCESS:
                     printf("Re-encryption complete, success\n");
                     break;
@@ -368,9 +399,13 @@ static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *p
                     printf("Re-encryption failed, disconnected\n");
                     break;
                 case ERROR_CODE_PIN_OR_KEY_MISSING:
-                    printf("Re-encryption failed, bonding information missing\n\n");
+                    printf(
+                        "Re-encryption failed, bonding information "
+                        "missing\n\n");
                     printf("Assuming remote lost bonding information\n");
-                    printf("Deleting local bonding information to allow for new pairing...\n");
+                    printf(
+                        "Deleting local bonding information to allow for new "
+                        "pairing...\n");
                     sm_event_reencryption_complete_get_address(packet, addr);
                     addr_type = sm_event_reencryption_started_get_addr_type(packet);
                     gap_delete_bonding(addr_type, addr);
@@ -381,7 +416,7 @@ static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *p
             break;
         case GATT_EVENT_QUERY_COMPLETE:
             status = gatt_event_query_complete_get_att_status(packet);
-            switch (status){
+            switch (status) {
                 case ATT_ERROR_INSUFFICIENT_ENCRYPTION:
                     printf("GATT Query failed, Insufficient Encryption\n");
                     break;
@@ -395,7 +430,8 @@ static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *p
                     printf("GATT Query successful\n");
                     break;
                 default:
-                    printf("GATT Query failed, status 0x%02x\n", gatt_event_query_complete_get_att_status(packet));
+                    printf("GATT Query failed, status 0x%02x\n",
+                           gatt_event_query_complete_get_att_status(packet));
                     break;
             }
             break;
@@ -404,27 +440,37 @@ static void sm_packet_handler (uint8_t packet_type, uint16_t channel, uint8_t *p
     }
 }
 
-uint16_t att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset, uint8_t * buffer, uint16_t buffer_size) {
+uint16_t att_read_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t offset,
+                           uint8_t *buffer, uint16_t buffer_size) {
     UNUSED(connection_handle);
 
-    if (att_handle == ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE){
+    if (att_handle == ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE) {
         printf("Read characteristic SSID: \"%s\"\n", wifi_setting.ssid);
-        return att_read_callback_handle_blob((const uint8_t *)&wifi_setting.ssid, strlen(wifi_setting.ssid), offset, buffer, buffer_size);
+        return att_read_callback_handle_blob((const uint8_t *)&wifi_setting.ssid,
+                                             strlen(wifi_setting.ssid), offset, buffer,
+                                             buffer_size);
     }
-    if (att_handle == ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE){
+    if (att_handle == ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE) {
         printf("Read characteristic IP address: %s\n", wifi_setting.ip_address);
-        return att_read_callback_handle_blob((const uint8_t *)&wifi_setting.ip_address, strlen(wifi_setting.ip_address), offset, buffer, buffer_size);
+        return att_read_callback_handle_blob((const uint8_t *)&wifi_setting.ip_address,
+                                             strlen(wifi_setting.ip_address), offset, buffer,
+                                             buffer_size);
     }
     return 0;
 }
 
-int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, uint16_t transaction_mode, uint16_t offset, uint8_t *buffer, uint16_t buffer_size) {
+int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle,
+                       uint16_t transaction_mode, uint16_t offset, uint8_t *buffer,
+                       uint16_t buffer_size) {
     UNUSED(transaction_mode);
     UNUSED(offset);
     switch (att_handle) {
         case ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE:
             if (sizeof(wifi_setting.ssid) < buffer_size) {
-                printf("WARN: Write message to the characteristic SSID message is too long\n");
+                printf(
+                    "WARN: Write message to the characteristic SSID message is "
+                    "too "
+                    "long\n");
                 return ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
             }
             memcpy(wifi_setting.ssid, buffer, buffer_size);
@@ -436,14 +482,15 @@ int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, 
             break;
         case ATT_CHARACTERISTIC_be3d7602_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE:
             if (sizeof(wifi_setting.password) < buffer_size) {
-                printf("WARN: Write message to the characteristic Password is too long\n");
+                printf(
+                    "WARN: Write message to the characteristic Password is too "
+                    "long\n");
                 return ATT_ERROR_INVALID_ATTRIBUTE_VALUE_LENGTH;
             }
             memcpy(wifi_setting.password, buffer, buffer_size);
             wifi_setting.password[buffer_size] = '\0';
             printf("Write characteristic Password: ");
-            for (size_t i = 0; i < strlen(wifi_setting.password); i++)
-                printf("*");
+            for (size_t i = 0; i < strlen(wifi_setting.password); i++) printf("*");
             printf("\n");
             if (strlen(wifi_setting.ssid) > 0 && strlen(wifi_setting.password) > 0) {
                 process_event(EVENT_WIFI_CONNECT);
@@ -458,47 +505,47 @@ int att_write_callback(hci_con_handle_t connection_handle, uint16_t att_handle, 
 static void wifi_task(void) {
     int status;
     switch (current_state) {
-    case DEVICE_WIFI_LINK_TO_UP:
-        status = cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
-        printf("Wi-Fi up link, link_status=%d\n", status);
-        if (status == CYW43_LINK_JOIN) {
+        case DEVICE_WIFI_LINK_TO_UP:
+            status = cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
+            printf("Wi-Fi up link, link_status=%d\n", status);
+            if (status == CYW43_LINK_JOIN) {
+                process_event(EVENT_WIFI_CONNECTED);
+            } else if (status < 0) {
+                process_event(EVENT_WIFI_ERROR);
+            }
+            break;
+        case DEVICE_WIFI_LINK_UP:
+            status = cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
+            if (status == CYW43_LINK_NONET) {
+                // No matching SSID found
+                wifi_setting.ssid[0] = '\0';
+                process_event(EVENT_WIFI_ERROR);
+            } else if (status == CYW43_LINK_BADAUTH) {
+                wifi_setting.password[0] = '\0';
+                process_event(EVENT_WIFI_ERROR);
+            }
+
+            if (status == CYW43_LINK_JOIN && (*(uint32_t *)&cyw43_state.netif[0].ip_addr) != 0) {
+                char *ip_address = ip4addr_ntoa(&cyw43_state.netif[0].ip_addr);
+                strcpy(wifi_setting.ip_address, ip_address);
+                printf("Acquired IP address=%s\n", wifi_setting.ip_address);
+                wifi_setting.link_status = 1;
+                cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
+
+                process_event(EVENT_IP_ACQUIRED);
+            }
+            break;
+        case DEVICE_WIFI_LINK_CONNECTED:
             process_event(EVENT_WIFI_CONNECTED);
-        } else if (status < 0) {
-            process_event(EVENT_WIFI_ERROR);
-        }
-        break;
-    case DEVICE_WIFI_LINK_UP:
-        status = cyw43_wifi_link_status(&cyw43_state, CYW43_ITF_STA);
-        if (status == CYW43_LINK_NONET) {
-            // No matching SSID found
-            wifi_setting.ssid[0] = '\0';
-            process_event(EVENT_WIFI_ERROR);
-        } else if (status == CYW43_LINK_BADAUTH) {
-            wifi_setting.password[0] = '\0';
-            process_event(EVENT_WIFI_ERROR);
-        }
-
-        if (status == CYW43_LINK_JOIN && (*(uint32_t *)&cyw43_state.netif[0].ip_addr) != 0) {
-            char *ip_address = ip4addr_ntoa(&cyw43_state.netif[0].ip_addr);
-            strcpy(wifi_setting.ip_address, ip_address);
-            printf("Acquired IP address=%s\n", wifi_setting.ip_address);
-            wifi_setting.link_status = 1;
-            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 1);
-
-            process_event(EVENT_IP_ACQUIRED);
-        }
-        break;
-    case DEVICE_WIFI_LINK_CONNECTED:
-        process_event(EVENT_WIFI_CONNECTED);
-        break;
-    case DEVICE_WIFI_LINK_DOWN:
-        cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
-        if (strlen(wifi_setting.ssid) > 0 && strlen(wifi_setting.password) > 0) {
-            process_event(EVENT_WIFI_CONNECT);
-        }
-        break;
-    default:
-        break;
+            break;
+        case DEVICE_WIFI_LINK_DOWN:
+            cyw43_arch_gpio_put(CYW43_WL_GPIO_LED_PIN, 0);
+            if (strlen(wifi_setting.ssid) > 0 && strlen(wifi_setting.password) > 0) {
+                process_event(EVENT_WIFI_CONNECT);
+            }
+            break;
+        default:
+            break;
     }
 }
 
