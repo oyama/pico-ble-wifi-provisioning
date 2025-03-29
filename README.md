@@ -47,11 +47,15 @@ The firmware runs as a USB serial device. You can monitor the debug log using a 
 4. Once connected, the assigned IP address can be read via BLE.
 5. Onboard LED lights up when connected to Wi-Fi and assigned an IP address.
 
+<img width="600" src="https://github.com/user-attachments/assets/3e531891-1d37-45b0-88c0-902c376f5c52" />
+
 ⚠️  nRF Connect should be sent and received in **UTF-8**.
 
 <img src="https://github.com/user-attachments/assets/6f93441c-f8b3-4805-bc2c-b6a5e4bc41f8" width=300/>
 
 <img src="https://github.com/user-attachments/assets/61f2fa72-e977-499d-b522-48bc87be769a" width=300/>
+
+
 
 ## License
 
