@@ -1,3 +1,9 @@
+//
+// This file defines the GATT profile for Wi-Fi provisioning.
+// The UUIDs used for the service and characteristics in this example were
+// generated specifically for demonstration purposes.
+//
+
 PRIMARY_SERVICE, be3d7600-0ea0-4e96-82e0-89aa6a3dc19f
 
 CHARACTERISTIC,  be3d7601-0ea0-4e96-82e0-89aa6a3dc19f, READ | WRITE | DYNAMIC | ENCRYPTION_KEY_SIZE_16,
