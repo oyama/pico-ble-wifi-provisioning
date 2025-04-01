@@ -60,7 +60,6 @@ static uint8_t adv_data[] = {
     0x02, BLUETOOTH_DATA_TYPE_FLAGS, APP_AD_FLAGS,
     // Name
     0x17, BLUETOOTH_DATA_TYPE_COMPLETE_LOCAL_NAME, 'P', 'i', 'c', 'o', ' ', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0', ':', '0', '0',
-    0x03, BLUETOOTH_DATA_TYPE_COMPLETE_LIST_OF_16_BIT_SERVICE_CLASS_UUIDS, 0x10, 0xff,
 };
 // clang-format on
 
@@ -315,6 +314,9 @@ static void ble_event_handler(uint8_t packet_type, uint16_t channel, uint8_t *pa
             le_notification_enabled = 0;
             printf("[BLE] Disconnected, handle: 0x%04x\n",
                    hci_event_disconnection_complete_get_connection_handle(packet));
+            break;
+        case HCI_EVENT_GATTSERVICE_META:
+            printf("ble_event_handler write callback\n");
             break;
         case ATT_EVENT_CAN_SEND_NOW:
             if (con_handle != HCI_CON_HANDLE_INVALID) {
