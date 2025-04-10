@@ -35,7 +35,10 @@ typedef enum {
 typedef enum {
     WIFI_SSID_HANDLE = ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
     WIFI_PASSWORD_HANDLE = ATT_CHARACTERISTIC_be3d7602_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
-    IP_ADDRESS_HANDLE = ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE
+    IP_ADDRESS_HANDLE = ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_VALUE_HANDLE,
+    WIFI_SSID_USER_DESCRIPTION_HANDLE = ATT_CHARACTERISTIC_be3d7601_0ea0_4e96_82e0_89aa6a3dc19f_01_USER_DESCRIPTION_HANDLE,
+    WIFI_PASSWORD_USER_DESCRIPTION_HANDLE = ATT_CHARACTERISTIC_be3d7602_0ea0_4e96_82e0_89aa6a3dc19f_01_USER_DESCRIPTION_HANDLE,
+    IP_ADDRESS_USER_DESCRIPTION_HANDLE = ATT_CHARACTERISTIC_be3d7603_0ea0_4e96_82e0_89aa6a3dc19f_01_USER_DESCRIPTION_HANDLE,
 } attribute_handle_t;
 
 typedef struct {
@@ -359,6 +362,16 @@ static uint16_t att_read_callback(hci_con_handle_t connection_handle, uint16_t a
                                              strlen(wifi_setting.ip_address), offset, buffer,
                                              buffer_size);
     }
+    if (att_handle == WIFI_SSID_USER_DESCRIPTION_HANDLE) {
+        return att_read_callback_handle_blob((const uint8_t *)"SSID", 4, offset, buffer, buffer_size);
+    }
+    if (att_handle == WIFI_PASSWORD_USER_DESCRIPTION_HANDLE) {
+        return att_read_callback_handle_blob((const uint8_t *)"Password", 8, offset, buffer, buffer_size);
+    }
+    if (att_handle == IP_ADDRESS_USER_DESCRIPTION_HANDLE) {
+        return att_read_callback_handle_blob((const uint8_t *)"IP Address", 10, offset, buffer, buffer_size);
+    }
+
     return 0;
 }
 
